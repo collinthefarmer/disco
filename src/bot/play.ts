@@ -40,23 +40,26 @@ export async function playReaction(ctx: BotCommandContext<Interaction>) {
  * a literal "-" in a hint value can be escaped with a "\"
  */
 function formPlaybackQuery(input: string): PlaybackQuery {
+    input = input.trim();
+
     // this may need some tinkering, but it should output matches as (key, value)
-    const hintPattern = /([a-zA-Z]+):(.+?)(?=\w*:|$|([^\\]-))/;
+    const hintPattern = /([a-zA-Z]+):(.+?)(?=\w*:|$|([^\\]-))/g;
 
-
-
-    // todo: something currently broken here, not extracting hint values at all
     const hintMatches = input.matchAll(hintPattern);
     const hints: Record<string, string> = {};
 
-    for (const match of hintMatches ?? []) {
+    let valueStart = 0;
+    for (const match of hintMatches) {
         // we don't care what the hint key is here
         // leave validation up to function handling playback
-        hints[match[0]] = hints[match[1]];
+        const key = match[1].trim();
+        hints[key] = match[2].trim();
+
+        valueStart += match[0].length + 1;
     }
 
     if (!isEmptyObject(hints)) {
-        const value = input.slice(hintPattern.lastIndex);
+        const value = input.slice(valueStart).trim();
         return {
             query: "searchQuery",
             value,
@@ -114,7 +117,6 @@ async function autocompletePlay(
 export async function goto() {
     // const asNumber = parseInt(input, 10)
     // if (!isNaN(asNumber)) {
-    //     // todo: what if someone is trying to play a track that is just a number? e.g., "8" by Billie Eilish
     //
     //     return {
     //         type: "queuePosition",
