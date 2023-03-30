@@ -4,9 +4,6 @@ import {
     Interaction,
     Client as DiscordClient,
     InteractionType,
-    ApplicationCommandOptionData,
-    ApplicationCommandType,
-    PermissionResolvable,
     ChatInputApplicationCommandData,
 } from "discord.js";
 
@@ -64,16 +61,21 @@ export type BotCommand = ChatInputApplicationCommandData & {
     reaction: BotReaction;
 };
 export type BotReaction = (
-    interaction: Interaction,
-    context: BotCommandContext
+    context: BotCommandContext<Interaction>
 ) => Promise<void>;
 
-export interface BotCommandContext {
+interface BaseBotCommandContext<I extends Interaction = Interaction> {
+    interaction?: I;
     discordRest: REST;
     discordClient: DiscordClient<true>; // handly lil type param there
     spotifyClient: SpotifyClient;
     db: Sequelize;
 }
+
+export type BotCommandContext<I extends undefined | Interaction = undefined> =
+    I extends Interaction
+        ? Required<BaseBotCommandContext<I>>
+        : BaseBotCommandContext;
 
 async function installCommands(
     appId: string,
@@ -110,31 +112,11 @@ function connectCommands(commands: BotCommand[], ctx: BotCommandContext) {
                 break;
 
             default:
-                console.warn("Unsupported command type received. Ignoring...");
+                console.warn("Unsupported command type received, ignoring...");
                 return;
         }
 
-        await reaction(interaction, ctx);
+        ctx.interaction = interaction;
+        await reaction(ctx as BotCommandContext<Interaction>);
     });
-}
-
-export function wrapAsCommand(
-    reaction: BotReaction,
-    name = reaction.name,
-    description = "",
-    options: ApplicationCommandOptionData[] = [],
-    dmPermission: boolean = false,
-    defaultMemberPermissions: PermissionResolvable | undefined = undefined
-): BotCommand {
-    const command: BotCommand = {
-        name,
-        description,
-        type: ApplicationCommandType.ChatInput,
-        reaction,
-        dmPermission,
-        defaultMemberPermissions,
-    };
-
-    if (options.length > 0) command["options"] = options;
-    return command;
 }
