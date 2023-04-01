@@ -5,7 +5,7 @@ import {
 } from "discord.js";
 import { BotCommandContext } from "./bot";
 import { isEmptyObject } from "../util";
-import { search, urlByQueuePosition } from "./lib";
+import { search, searchMany, urlByQueuePosition } from "./lib";
 
 export interface PlaybackQuery {
     query: "searchQuery" | "url" | "resume" | "goto";
@@ -13,7 +13,7 @@ export interface PlaybackQuery {
     hints?: Record<string, string>;
 }
 
-export const PLAYBACK_INPUT = "play_input";
+export const PLAY_INPUT = "play_input";
 
 export async function playReaction(ctx: BotCommandContext<Interaction>) {
     if (ctx.interaction.isChatInputCommand())
@@ -71,18 +71,20 @@ function formPlaybackQuery(input: string): PlaybackQuery {
 }
 
 async function inputPlay(ctx: BotCommandContext<ChatInputCommandInteraction>) {
-    const input = ctx.interaction.options.getString(PLAYBACK_INPUT);
+    const input = ctx.interaction.options.getString(PLAY_INPUT);
     if (!input) return playResume(ctx);
     if (input.startsWith("https://")) return playUrl(input, ctx);
     return playSearchQuery(formPlaybackQuery(input), ctx);
 }
 
 async function playResume(ctx: BotCommandContext<ChatInputCommandInteraction>) {
-    return playGoto(0, ctx);
+    //  only play if session can be resumed (i.e., exists)
+    return playGoto(0, true, ctx);
 }
 
 async function playGoto(
     position: number,
+    skip: boolean,
     ctx: BotCommandContext<ChatInputCommandInteraction>
 ) {
     return playUrl(await urlByQueuePosition(position, ctx), ctx);
@@ -92,35 +94,49 @@ async function playSearchQuery(
     query: PlaybackQuery,
     ctx: BotCommandContext<ChatInputCommandInteraction>
 ) {
-    await ctx.interaction.reply(
-        `searching based on query: ${JSON.stringify(query)}}`
-    );
-    return playUrl(await search(query.value, query.hints, ctx), ctx);
+    const result = await search(query.value, query.hints, ctx);
+    await ctx.interaction.reply(`adding ${result.label}`);
+
+    return playUrl(result.url, ctx);
 }
 
 async function playUrl(
     url: string,
     ctx: BotCommandContext<ChatInputCommandInteraction>
 ) {
+    // add the track to the appropriate session
+    // and tell the sessionserver we added a track
     // we should do validation on the url before starting its playback
     return Promise.resolve(undefined);
 }
 
 async function autocompletePlay(
     ctx: BotCommandContext<AutocompleteInteraction>
-) {}
+) {
+    const partialInput = ctx.interaction.options.getString(PLAY_INPUT);
+    if (!partialInput || partialInput.startsWith("https://")) return;
 
-/**
- * Skip to a position in the queue
- */
+    const query = formPlaybackQuery(partialInput);
+    const results = await searchMany(query.value, query.hints, ctx, {
+        limit: 6,
+    });
 
-export async function goto() {
-    // const asNumber = parseInt(input, 10)
-    // if (!isNaN(asNumber)) {
-    //
-    //     return {
-    //         type: "queuePosition",
-    //         value: asNumber
-    //     }
-    // }
+    await ctx.interaction.respond(
+        results.map((r) => ({ name: r.label, value: r.url }))
+    );
+}
+
+export const GOTO_POSITION = "position";
+export const GOTO_SKIP = "skip";
+
+export async function gotoReaction(ctx: BotCommandContext<Interaction>) {
+    if (!ctx.interaction.isChatInputCommand()) return;
+
+    const position = ctx.interaction.options.getInteger("position", true);
+    const skip = ctx.interaction.options.getBoolean("skip") ?? false;
+    return playGoto(
+        position,
+        skip,
+        ctx as BotCommandContext<ChatInputCommandInteraction>
+    );
 }
