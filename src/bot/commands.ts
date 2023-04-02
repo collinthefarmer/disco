@@ -1,16 +1,37 @@
 import {
+    ApplicationCommandOptionChoiceData,
     ApplicationCommandOptionType,
     ApplicationCommandType,
+    AutocompleteInteraction,
+    ChatInputCommandInteraction,
     Interaction,
 } from "discord.js";
 import { BotCommand, BotCommandContext } from "./bot";
 import {
-    GOTO_POSITION,
-    GOTO_SKIP,
-    gotoReaction,
-    PLAY_INPUT,
-    playReaction,
-} from "./play";
+    buildPlaybackPretext,
+    composePlaybackUri,
+    PlaybackType,
+    pretextAutocompleteOptions,
+    pretextLabel,
+} from "./playback";
+import { getSessionId, queue } from "./sessionserver";
+import { search } from "../lib/search";
+
+export type BotInteractionContext = BotCommandContext<Interaction>;
+export type BotChatInteractionContext =
+    BotCommandContext<ChatInputCommandInteraction>;
+export type BotAutocompleteInteractionContext =
+    BotCommandContext<AutocompleteInteraction>;
+
+function isChat(ctx: BotInteractionContext): ctx is BotChatInteractionContext {
+    return ctx.interaction.isChatInputCommand();
+}
+
+function isAutocomplete(
+    ctx: BotInteractionContext
+): ctx is BotAutocompleteInteractionContext {
+    return ctx.interaction.isAutocomplete();
+}
 
 export const test: BotCommand = {
     name: "test",
@@ -19,25 +40,28 @@ export const test: BotCommand = {
     dmPermission: false,
     options: [
         {
-            name: "testautocomplete",
+            name: "test_autocomplete",
             type: ApplicationCommandOptionType.String,
             description: "test option",
             autocomplete: true,
         },
     ],
-    reaction: async (ctx: BotCommandContext<Interaction>) => {
-        if (ctx.interaction.isChatInputCommand()) {
-            await ctx.interaction.reply("test received!");
-        } else if (ctx.interaction.isAutocomplete())
+    reaction: async (ctx: BotInteractionContext) => {
+        if (isChat(ctx)) await ctx.interaction.reply("test received!");
+        else if (isAutocomplete(ctx))
             await ctx.interaction.respond([
                 {
                     name: "autocomplete received!",
-                    value: "autocomplete value",
+                    value: ctx.interaction.options.getString(
+                        "test_autocomplete",
+                        true
+                    ),
                 },
             ]);
     },
 };
 
+export const PLAY_INPUT = "play_input";
 export const play: BotCommand = {
     name: "play",
     description:
@@ -53,9 +77,37 @@ export const play: BotCommand = {
             required: false,
         },
     ],
-    reaction: playReaction,
+    reaction: async (ctx: BotInteractionContext) => {
+        if (!(isChat(ctx) || isAutocomplete(ctx))) return;
+
+        const pretext = await buildPlaybackPretext(ctx);
+
+        if (isChat(ctx)) {
+            const uri = await composePlaybackUri(ctx, pretext);
+            const contextSession = await getSessionId(ctx);
+
+            await queue(contextSession, uri);
+            await ctx.interaction.reply(pretextLabel(pretext));
+            return;
+        }
+
+        let options: ApplicationCommandOptionChoiceData[] = [];
+        if (pretext.type === PlaybackType.url) {
+            options = (
+                await search(ctx.spotifyClient, pretext, { limit: 3 })
+            ).map((o) => ({
+                name: "",
+                value: o.url,
+            }));
+        }
+
+        if (!options) return;
+        await ctx.interaction.respond(options);
+    },
 };
 
+export const GOTO_POSITION = "goto_position";
+export const GOTO_SKIP = "goto_skip";
 export const goto: BotCommand = {
     name: "goto",
     description:
@@ -76,5 +128,29 @@ export const goto: BotCommand = {
             required: false,
         },
     ],
-    reaction: gotoReaction,
+    reaction: async (ctx: BotInteractionContext) => {
+        if (isChat(ctx)) {
+            // todo
+        } else if (isAutocomplete(ctx)) {
+            // todo
+        }
+    },
 };
+
+// export const skip: BotCommand = {} todo
+// export const stop: BotCommand = {} todo
+// export const pause: BotCommand = {} todo
+
+/**
+ * if playback can't be done synchronously and from a centralized source
+ * ie., from a voice bot streaming audio directly to a channel
+ * we need some way of letting people sync their track progress to \
+ * \ where the rest of the group is at.
+ *      though, this raises the question of how to manage that sync.
+ *
+ */
+//
+// ie., from a voice bot streaming audio
+// we need some way of letting people sync their track progress to
+// where the rest of the group is at
+// export const sync: BotCommand = {} todo
