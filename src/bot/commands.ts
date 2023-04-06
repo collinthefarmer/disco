@@ -1,5 +1,4 @@
 import {
-    ApplicationCommandOptionChoiceData,
     ApplicationCommandOptionType,
     ApplicationCommandType,
     AutocompleteInteraction,
@@ -11,27 +10,8 @@ import {
     buildPlaybackPretext,
     composePlaybackUri,
     PlaybackType,
-    pretextAutocompleteOptions,
     pretextLabel,
 } from "./playback";
-import { getSessionId, queue } from "./sessionserver";
-import { search } from "../lib/search";
-
-export type BotInteractionContext = BotCommandContext<Interaction>;
-export type BotChatInteractionContext =
-    BotCommandContext<ChatInputCommandInteraction>;
-export type BotAutocompleteInteractionContext =
-    BotCommandContext<AutocompleteInteraction>;
-
-function isChat(ctx: BotInteractionContext): ctx is BotChatInteractionContext {
-    return ctx.interaction.isChatInputCommand();
-}
-
-function isAutocomplete(
-    ctx: BotInteractionContext
-): ctx is BotAutocompleteInteractionContext {
-    return ctx.interaction.isAutocomplete();
-}
 
 export const test: BotCommand = {
     name: "test",
@@ -91,18 +71,17 @@ export const play: BotCommand = {
             return;
         }
 
-        let options: ApplicationCommandOptionChoiceData[] = [];
         if (pretext.type === PlaybackType.url) {
-            options = (
+            const options = (
                 await search(ctx.spotifyClient, pretext, { limit: 3 })
             ).map((o) => ({
                 name: "",
                 value: o.url,
             }));
-        }
 
-        if (!options) return;
-        await ctx.interaction.respond(options);
+            await ctx.interaction.respond(options);
+            return;
+        }
     },
 };
 
@@ -154,3 +133,19 @@ export const goto: BotCommand = {
 // we need some way of letting people sync their track progress to
 // where the rest of the group is at
 // export const sync: BotCommand = {} todo
+
+export type BotInteractionContext = BotCommandContext<Interaction>;
+export type BotChatInteractionContext =
+    BotCommandContext<ChatInputCommandInteraction>;
+export type BotAutocompleteInteractionContext =
+    BotCommandContext<AutocompleteInteraction>;
+
+function isChat(ctx: BotInteractionContext): ctx is BotChatInteractionContext {
+    return ctx.interaction.isChatInputCommand();
+}
+
+function isAutocomplete(
+    ctx: BotInteractionContext
+): ctx is BotAutocompleteInteractionContext {
+    return ctx.interaction.isAutocomplete();
+}

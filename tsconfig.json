@@ -12,8 +12,16 @@
         /* Ensure that casing is correct in imports. */
         "strict": true,
         /* Enable all strict type-checking options. */
-        "skipLibCheck": true
+        "skipLibCheck": true,
+        "experimentalDecorators": true,
+        "emitDecoratorMetadata": true,
         /* Skip type checking all .d.ts files. */
+        "types": [
+            "jest"
+        ]
     },
-    "exclude": ["./_src"]
+    "exclude": [
+        "./_src"
+        // local old implementation using for reference
+    ]
 }

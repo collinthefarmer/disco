@@ -1,14 +1,27 @@
-import { findConfig, start } from "./bot/disco";
-import { Sequelize } from "sequelize";
-import { BotCommand } from "./bot/bot";
+import { Sequelize } from "sequelize-typescript";
+
+import { botStart, BotCommand } from "./bot/bot";
 import { goto, play, test } from "./bot/commands";
+
+import {
+    findConfig,
+    PlaybackActionImpl,
+    PlaybackSourceImpl,
+    SessionImpl,
+} from "./disco";
 
 const dotenv = require("dotenv");
 dotenv.config({ path: ".env" });
 
 const cfg = findConfig(process.env);
-const db = new Sequelize(cfg.dbPath);
-
 const commands: BotCommand[] = [test, play, goto];
 
-start(commands, db, cfg);
+const db = new Sequelize({
+    dialect: "sqlite",
+    database: "disco",
+    username: "root",
+    storage: cfg.dbPath,
+    models: [PlaybackActionImpl, PlaybackSourceImpl, SessionImpl],
+});
+
+(async () => botStart(commands, db, cfg))();

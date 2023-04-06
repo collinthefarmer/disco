@@ -1,8 +1,10 @@
-import {BotAutocompleteInteractionContext, BotChatInteractionContext, PLAY_INPUT} from "./commands";
-import {isUrl} from "../util";
-import {search, SearchOptions, SearchResult, SearchResultType} from "../lib/search";
-import {BotCommandContext} from "./bot";
-import {getSessionId} from "./sessionserver";
+import {
+    BotAutocompleteInteractionContext,
+    BotChatInteractionContext,
+    PLAY_INPUT,
+} from "./commands";
+import { isUrl } from "../util";
+import { BotCommandContext } from "./bot";
 
 export enum PlaybackType {
     goto,
@@ -11,24 +13,27 @@ export enum PlaybackType {
 }
 
 interface PlaybackPretextGoto {
-    type: PlaybackType.goto,
+    type: PlaybackType.goto;
     query: number;
 }
 
 type PlaybackPretextSearchHints = Record<string, string>;
 
 interface PlaybackPretextSearch {
-    type: PlaybackType.search,
-    query: string,
+    type: PlaybackType.search;
+    query: string;
     hints: PlaybackPretextSearchHints;
 }
 
 interface PlaybackPretextUrl {
-    type: PlaybackType.url,
-    query: string
+    type: PlaybackType.url;
+    query: string;
 }
 
-export type PlaybackPretext = PlaybackPretextGoto | PlaybackPretextSearch | PlaybackPretextUrl;
+export type PlaybackPretext =
+    | PlaybackPretextGoto
+    | PlaybackPretextSearch
+    | PlaybackPretextUrl;
 
 export interface PlaybackAutocompleteOption {
     icon?: string;
@@ -37,15 +42,21 @@ export interface PlaybackAutocompleteOption {
     value: string;
 }
 
-export async function buildPlaybackPretext(ctx: BotChatInteractionContext | BotAutocompleteInteractionContext): Promise<PlaybackPretext> {
+export async function buildPlaybackPretext(
+    ctx: BotChatInteractionContext | BotAutocompleteInteractionContext
+): Promise<PlaybackPretext> {
     const seed = ctx.interaction.options.getString(PLAY_INPUT);
 
-    if (!seed) return {type: PlaybackType.goto, query: 0};
-    else if (isUrl(seed)) return {type: PlaybackType.url, query: seed};
+    if (!seed) return { type: PlaybackType.goto, query: 0 };
+    else if (isUrl(seed)) return { type: PlaybackType.url, query: seed };
     else return buildSearchPretext(ctx, seed);
 }
 
-export async function pretextAutocompleteOptions(ctx: BotAutocompleteInteractionContext, ptx: PlaybackPretext, options?: SearchOptions): Promise<PlaybackAutocompleteOption[]> {
+export async function pretextAutocompleteOptions(
+    ctx: BotAutocompleteInteractionContext,
+    ptx: PlaybackPretext,
+    options?: SearchOptions
+): Promise<PlaybackAutocompleteOption[]> {
     if (ptx.type !== PlaybackType.search) return [];
 
     const typeIcons: Record<SearchResultType, string> = {
@@ -57,39 +68,40 @@ export async function pretextAutocompleteOptions(ctx: BotAutocompleteInteraction
         [SearchResultType.podcast]: "🎙️",
         [SearchResultType.show]: "📻",
         [SearchResultType.track]: "🎶",
-        [SearchResultType.unknown]: "❔"
-    }
+        [SearchResultType.unknown]: "❔",
+    };
 
     return (await search(ctx.spotifyClient, ptx, options)).map((r) => ({
         icon: typeIcons[r.type],
         labelPrimary: "",
         labelSecondary: "",
-        value: ""
-    }))
+        value: "",
+    }));
 }
 
-export async function composePlaybackUri(ctx: BotCommandContext, ptx: PlaybackPretext): Promise<string> {
+export async function composePlaybackUri(
+    ctx: BotCommandContext,
+    ptx: PlaybackPretext
+): Promise<string> {
     if (ptx.type === PlaybackType.url) return ptx.query;
     if (ptx.type === PlaybackType.goto) {
         const sessionId = await getSessionId(ctx);
-        return `disco://${sessionId}/${ptx.query}`
+        return `disco://${sessionId}/${ptx.query}`;
     }
 
     return (await reifySearchPretext(ptx)).url;
 }
 
-export function pretextLabel(ptx: PlaybackPretext): string {
+export function pretextLabel(ptx: PlaybackPretext): string {}
 
-}
+function buildSearchPretext(
+    ctx: BotChatInteractionContext | BotAutocompleteInteractionContext,
+    query: string
+): PlaybackPretextSearch {}
 
-function buildSearchPretext(ctx: BotChatInteractionContext | BotAutocompleteInteractionContext, query: string): PlaybackPretextSearch {
-
-}
-
-async function reifySearchPretext(ptx: PlaybackPretextSearch): Promise<SearchResult> {
-
-}
-
+async function reifySearchPretext(
+    ptx: PlaybackPretextSearch
+): Promise<SearchResult> {}
 
 // import {
 //     AutocompleteInteraction,
