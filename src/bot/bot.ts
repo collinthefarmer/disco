@@ -4,19 +4,13 @@ import {
     Interaction,
     Client as DiscordClient,
     InteractionType,
-    ChatInputApplicationCommandData,
 } from "discord.js";
 
 import { Client as SpotifyClient } from "spotify.ts";
 import { Sequelize } from "sequelize";
 
-export interface BotConfig {
-    discordAppId: string;
-    discordToken: string;
-    spotifyAppId: string;
-    spotifyAppSc: string;
-    dbPath: string;
-}
+import { DiscoConfig } from "../disco";
+import { BotCommand, BotCommandContext, BotReaction } from "./commands/commands";
 
 /**
  * Start up the Discord Bot
@@ -35,7 +29,7 @@ export interface BotConfig {
 export async function botStart(
     commands: BotCommand[],
     db: Sequelize,
-    cfg: BotConfig
+    cfg: DiscoConfig
 ) {
     const rest = new REST({ version: "10" }).setToken(cfg.discordToken);
 
@@ -57,26 +51,6 @@ export async function botStart(
     await discord.login(cfg.discordToken);
 }
 
-export type BotCommand = ChatInputApplicationCommandData & {
-    reaction: BotReaction;
-};
-export type BotReaction = (
-    context: BotCommandContext<Interaction>
-) => Promise<void>;
-
-interface BaseBotCommandContext<I extends Interaction = Interaction> {
-    interaction?: I;
-    discordRest: REST;
-    discordClient: DiscordClient<true>; // handly lil type param there
-    spotifyClient: SpotifyClient;
-    db: Sequelize;
-}
-
-export type BotCommandContext<I extends undefined | Interaction = undefined> =
-    I extends Interaction
-        ? Required<BaseBotCommandContext<I>>
-        : BaseBotCommandContext;
-
 async function installCommands(
     appId: string,
     client: REST,
@@ -85,7 +59,7 @@ async function installCommands(
     try {
         // clean up the commands
         const clean = commands.map((c) => {
-            const { reaction, ...command } = c;
+            const { reaction, options, ...command } = c;
             return command;
         });
 

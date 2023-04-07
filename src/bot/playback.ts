@@ -4,7 +4,7 @@ import {
     PLAY_INPUT,
 } from "./commands";
 import { isUrl } from "../util";
-import { BotCommandContext } from "./bot";
+import { SearchResultType } from "./search";
 
 export enum PlaybackType {
     goto,

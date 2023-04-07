@@ -1,7 +1,6 @@
 import { Sequelize } from "sequelize-typescript";
 
-import { botStart, BotCommand } from "./bot/bot";
-import { goto, play, test } from "./bot/commands";
+import { botStart, commands } from "./bot";
 
 import {
     findConfig,
@@ -14,7 +13,6 @@ const dotenv = require("dotenv");
 dotenv.config({ path: ".env" });
 
 const cfg = findConfig(process.env);
-const commands: BotCommand[] = [test, play, goto];
 
 const db = new Sequelize({
     dialect: "sqlite",
