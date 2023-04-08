@@ -1,20 +1,30 @@
 import {
     Column,
     HasOne,
+    HasMany,
     Model,
     Sequelize,
     Table,
     DataType,
     PrimaryKey,
+    UpdatedAt,
+    CreatedAt,
+    AllowNull,
+    Default,
+    AutoIncrement,
+    ForeignKey,
+    BelongsTo,
 } from "sequelize-typescript";
 
 import {
-    PlaybackAction,
-    PlaybackSource,
-    Session,
+    PlaybackActionInterface,
+    PlaybackSourceInterface,
+    SessionInterface,
     SessionCommand,
-    SessionManager,
+    SessionManagerInterface,
 } from "./playback";
+
+export const SESSION_IDLE_WAIT_MS = 1000 * 60 * 30; // 30 minutes
 
 export interface DiscoConfig {
     discordAppId: string;
@@ -66,7 +76,7 @@ export function findConfig(
 // implementations
 
 @Table
-export class PlaybackSourceImpl extends Model<PlaybackSource> {
+export class PlaybackSource extends Model<PlaybackSourceInterface> {
     @PrimaryKey
     @Column
     declare id: string;
@@ -76,42 +86,40 @@ export class PlaybackSourceImpl extends Model<PlaybackSource> {
 }
 
 @Table
-export class PlaybackActionImpl extends Model<PlaybackAction> {
+export class Session extends Model<
+    Omit<SessionInterface, "next" | "queue" | "history" | "revert">
+> {
+    // omit because those aren't actual columns but the builder thinks they are
+    @AllowNull
+    @AutoIncrement
     @PrimaryKey
     @Column
-    declare id: string;
+    declare id: number;
 
-    @HasOne(() => PlaybackActionImpl, "id")
-    declare next: PlaybackActionImpl;
-
-    @HasOne(() => PlaybackSourceImpl, "id")
-    declare src: PlaybackSourceImpl;
-
-    @Column
-    declare url: string;
-}
-
-@Table
-export class SessionImpl extends Model<Session> {
-    @PrimaryKey
-    @Column
-    declare id: string;
-
-    @HasOne(() => PlaybackActionImpl, "id")
-    declare current: PlaybackActionImpl | null;
-
-    @Column({ type: DataType.STRING, allowNull: true })
+    @AllowNull
+    @Column({ type: DataType.STRING })
     declare name: string | null;
 
-    @HasOne(() => PlaybackActionImpl, "id")
-    declare last: PlaybackActionImpl;
+    @Column
+    declare channelId: string;
 
-    get next(): PlaybackActionImpl | null {
+    @Column
+    declare expiresAt: number;
+
+    @HasOne(() => PlaybackAction, "id")
+    declare current: PlaybackAction | null;
+
+    @HasOne(() => PlaybackAction, "id")
+    declare last: PlaybackAction | null;
+
+    declare history: SessionInterface[];
+
+    get next(): PlaybackAction | null {
         if (!this.current) return null;
         return this.current.next;
     }
 
-    get queue(): PlaybackActionImpl[] {
+    get queue(): PlaybackAction[] {
         if (!this.current) return [];
 
         const q = [this.current];
@@ -124,17 +132,36 @@ export class SessionImpl extends Model<Session> {
         return q;
     }
 
-    declare history: Session[];
-
-    revert(to: Session) {
+    revert(to: SessionInterface) {
         throw new Error();
     }
 }
 
-export class DiscoSessionManager implements SessionManager {
-    public initialized: Promise<void>;
+@Table
+export class PlaybackAction extends Model<PlaybackActionInterface> {
+    @PrimaryKey
+    @AutoIncrement
+    @Column
+    declare id: number;
 
-    constructor(public session: SessionImpl, private dbConnection: Sequelize) {
+    @BelongsTo(() => Session)
+    declare session: Session;
+
+    @HasOne(() => PlaybackAction)
+    declare next: PlaybackAction;
+
+    @HasOne(() => PlaybackSource)
+    declare src: PlaybackSource;
+
+    @Column
+    declare url: string;
+}
+
+export class DiscoSessionManager implements SessionManagerInterface {
+    public initialized: Promise<void>;
+    public session!: Session;
+
+    constructor(public sessionId: string, private dbConnection: Sequelize) {
         this.initialized = this.initialize(this.dbConnection);
     }
 
@@ -143,13 +170,14 @@ export class DiscoSessionManager implements SessionManager {
     queueGoto(i: number): void {}
 
     async queuePush(cmd: SessionCommand): Promise<void> {
-        const pushed = new PlaybackActionImpl(cmd.asAction());
+        const pushed = new PlaybackAction(cmd.asAction());
 
         if (!this.session.current) {
             this.session.current = pushed;
+            this.session.last = pushed;
         } else if (!this.session.next) {
             this.session.current.next = pushed;
-        } else {
+        } else if (this.session.last) {
             this.session.last.next = pushed;
             this.session.last = pushed;
         }
@@ -167,5 +195,11 @@ export class DiscoSessionManager implements SessionManager {
 
     private async initialize(sequelize: Sequelize) {
         await sequelize.authenticate();
+        const session = await Session.findOne({
+            where: { id: this.sessionId },
+        });
+
+        if (!session) throw new Error();
+        this.session = session;
     }
 }

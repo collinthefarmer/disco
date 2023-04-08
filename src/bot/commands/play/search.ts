@@ -21,7 +21,7 @@ export interface SearchResult<T extends Record<string, unknown> = Record<string,
 export interface SearchOptions {
     limit?: number
 }
-
-export function search(client: SpotifyClient, pretext: PlaybackPretext, options?: SearchOptions): Promise<SearchResult[]> {
-
-}
+//
+// export function search(client: SpotifyClient, pretext: PlaybackPretext, options?: SearchOptions): Promise<SearchResult[]> {
+//
+// }

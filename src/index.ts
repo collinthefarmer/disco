@@ -2,12 +2,9 @@ import { Sequelize } from "sequelize-typescript";
 
 import { botStart, commands } from "./bot";
 
-import {
-    findConfig,
-    PlaybackActionImpl,
-    PlaybackSourceImpl,
-    SessionImpl,
-} from "./disco";
+import { findConfig } from "./disco";
+
+import { Session, SessionTrack, SessionSource } from "./disco/models";
 
 const dotenv = require("dotenv");
 dotenv.config({ path: ".env" });
@@ -19,7 +16,11 @@ const db = new Sequelize({
     database: "disco",
     username: "root",
     storage: cfg.dbPath,
-    models: [PlaybackActionImpl, PlaybackSourceImpl, SessionImpl],
+    models: [Session, SessionTrack, SessionSource],
 });
 
-(async () => botStart(commands, db, cfg))();
+(async () => {
+    await db.authenticate();
+    await db.sync();
+    await botStart(commands, db, cfg);
+})();

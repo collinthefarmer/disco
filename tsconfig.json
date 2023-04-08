@@ -21,7 +21,8 @@
         ]
     },
     "exclude": [
-        "./_src"
+        "./_src",
         // local old implementation using for reference
+        "test"
     ]
 }

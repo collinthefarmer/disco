@@ -1,27 +1,27 @@
-export interface PlaybackAction {
-    id: string;
+export interface PlaybackActionInterface {
+    id: number;
 
-    src: PlaybackSource;
+    src: PlaybackSourceInterface;
     url: string;
-    next?: PlaybackAction;
+    next?: PlaybackActionInterface;
 }
 
 export interface PlaybackTarget {
-    play: (action: PlaybackAction) => Promise<void | PlaybackError>;
+    play: (action: PlaybackActionInterface) => Promise<void | PlaybackError>;
 }
 
-export interface PlaybackSource {
+export interface PlaybackSourceInterface {
     id: string;
     name: string;
 }
 
 export class PlaybackError extends Error {}
 
-export interface Session {
+export interface SessionInterface {
     /**
      * Unique id for this Session.
      */
-    id: string;
+    id: number;
 
     /**
      * Optional name for this session.
@@ -29,46 +29,56 @@ export interface Session {
     name: string | null;
 
     /**
+     * ID of Voice Channel this session is tied to.
+     */
+    channelId: string;
+
+    /**
+     * Timestamp at which this session will expire if it receives no more play actions.
+     */
+    expiresAt: number;
+
+    /**
      * Next PlaybackAction to be played. (should point to current.next)
      */
-    next: PlaybackAction | null;
+    next: PlaybackActionInterface | null;
 
     /**
      * Last PlaybackAction to be played.
      */
-    last: PlaybackAction;
+    last: PlaybackActionInterface | null;
 
     /**
      * PlaybackAction currently in progress
      */
-    current: PlaybackAction | null;
+    current: PlaybackActionInterface | null;
 
     /**
      * All PlaybackActions found by traversing .next
      */
-    queue: PlaybackAction[];
+    queue: PlaybackActionInterface[];
 
     /**
      * Previous states in order of last occurring (like a stack)
      */
-    history: Session[];
+    history: SessionInterface[];
 
     /**
      * Restore this session to the state of Session 'to'
      * @param to
      */
-    revert: (to: Session) => void;
+    revert: (to: SessionInterface) => void;
 }
 
 export interface SessionCommand {
-    src: PlaybackSource;
+    src: PlaybackSourceInterface;
     input: string;
 
-    asAction(): PlaybackAction;
+    asAction(): PlaybackActionInterface;
 }
 
-export interface SessionManager {
-    session: Session;
+export interface SessionManagerInterface {
+    session: SessionInterface;
 
     /**
      * Add an item to the queue.
@@ -89,10 +99,10 @@ export interface SessionManager {
      */
     queueSkip: () => void;
 
-    /**
-     * Undo the last change to the queue.
-     */
-    queueUndo: () => void;
+    // /**
+    //  * Undo the last change to the queue.
+    //  */
+    // queueUndo: () => void;
 
     /**
      * Find the position of a command in the queue.

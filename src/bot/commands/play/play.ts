@@ -12,7 +12,8 @@ import {
     isAutocomplete,
     isChat,
 } from "../commands";
-import { fetchOrCreateSession } from "../session";
+import { fetchOrCreateSession, fetchOrCreateSource } from "../session";
+import { SessionTrack } from "../../../disco/models";
 
 export const playInput: ApplicationCommandOptionData = {
     name: "playInput",
@@ -35,23 +36,36 @@ export const play: BotCommand = {
 };
 
 async function playChatAction(ctx: BotChatInteractionContext) {
-    const contextSession = await fetchOrCreateSession(ctx);
+    const sess = await fetchOrCreateSession(ctx);
+    const user = await fetchOrCreateSource(ctx);
 
-    const uri = await composePlaybackUri(ctx, pretext);
-
-    await queue(contextSession, uri);
-    await ctx.interaction.reply(pretextLabel(pretext));
-    return;
+    const track = await sess.addTrack(
+        {
+            duration: 100,
+            size: 1000,
+            sourceId: user.id,
+        },
+        await sess.last
+    );
+    await ctx.interaction.reply(
+        `Playing track ${track.id} right after ${track.prev?.id}`
+    );
+    //
+    // const uri = await composePlaybackUri(ctx, pretext);
+    //
+    // await queue(contextSession, uri);
+    // await ctx.interaction.reply(pretextLabel(pretext));
+    // return;
 }
 
 async function playAutocompleteAction(ctx: BotAutocompleteInteractionContext) {
-    const options = (
-        await search(ctx.spotifyClient, pretext, { limit: 3 })
-    ).map((o) => ({
-        name: "",
-        value: o.url,
-    }));
-
-    await ctx.interaction.respond(options);
-    return;
+    // const options = (
+    //     await search(ctx.spotifyClient, pretext, { limit: 3 })
+    // ).map((o) => ({
+    //     name: "",
+    //     value: o.url,
+    // }));
+    //
+    // await ctx.interaction.respond(options);
+    // return;
 }
