@@ -1,13 +1,16 @@
 import { Sequelize } from "sequelize-typescript";
 
-import { botStart, commands } from "./bot";
+import {
+    boogie,
+    findConfig,
+    Session,
+    SessionTrack,
+    SessionSource,
+} from "./disco";
 
-import { findConfig } from "./disco";
+import { Goto, Pause, Play, Skip, Status, Stop } from "./bot";
 
-import { Session, SessionTrack, SessionSource } from "./disco/models";
-
-const dotenv = require("dotenv");
-dotenv.config({ path: ".env" });
+require("dotenv").config({ path: ".env" });
 
 const cfg = findConfig(process.env);
 
@@ -22,5 +25,5 @@ const db = new Sequelize({
 (async () => {
     await db.authenticate();
     await db.sync();
-    await botStart(commands, db, cfg);
+    await boogie(db, cfg, [Goto, Pause, Play, Skip, Status, Stop]);
 })();

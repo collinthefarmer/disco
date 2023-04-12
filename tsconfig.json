@@ -17,6 +17,7 @@
         "emitDecoratorMetadata": true,
         /* Skip type checking all .d.ts files. */
         "types": [
+            "@types/node",
             "jest"
         ]
     },

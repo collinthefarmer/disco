@@ -4,7 +4,6 @@ import {
     Column,
     DataType,
     Default,
-    DefaultScope,
     HasMany,
     HasOne,
     Model,
@@ -56,7 +55,26 @@ interface SessionCreateAttributes {
 }))
 @Table
 export class Session extends Model<SessionAttributes, SessionCreateAttributes> {
-    static ttl(): number {
+    static async forChannel(
+        channelId: string,
+        name?: string
+    ): Promise<Session> {
+        const [sess] = await Session.findOrCreate({
+            where: {
+                channelId,
+                name: name ? name : undefined,
+                expires: { [Op.gt]: Date.now() },
+            },
+            defaults: {
+                channelId,
+                name: name ? name : undefined,
+            },
+        });
+
+        return sess.save();
+    }
+
+    private static ttl(): number {
         return Date.now() + SESSION_IDLE_WAIT_MS;
     }
 
@@ -98,6 +116,9 @@ export class Session extends Model<SessionAttributes, SessionCreateAttributes> {
     @Column
     declare queuedCt: number;
 
+    @HasMany(() => SessionTrack, { as: "linked" })
+    declare history: SessionTrack[];
+
     @HasMany(() => SessionTrack, { as: "queued" })
     get queue(): SessionQueue {
         const first = this.history.filter((t) => t.prev === null)[0];
@@ -112,29 +133,51 @@ export class Session extends Model<SessionAttributes, SessionCreateAttributes> {
         return sorted as SessionQueue;
     }
 
-    @HasMany(() => SessionTrack, { as: "linked" })
-    declare history: SessionTrack[];
+    get next(): SessionTrack | null {
+        for (const t of this.queue) {
+            if (t.progress && t.progress !== t.duration) return t;
+        }
 
-    public async addTrack(
+        return this.first;
+    }
+
+    async addTrack(
         t: TrackCreateAttributes,
         after: SessionTrack | null
     ): Promise<SessionTrack> {
         const track = new SessionTrack(t);
         track.sessionId = this.id;
-        track.nextId = null;
         track.prevId = after?.id ?? null;
 
-        await track.save();
-
         if (after instanceof SessionTrack) {
+            track.nextId = after.nextId;
             after.nextId = track.id;
             await after.save();
         }
 
-        this.set("expires", this.expires + t.duration);
-        await this.increment("queuedCt");
-        await this.save();
+        this.queuedCt++;
 
-        return track.reload();
+        await this.save();
+        return track.save();
+    }
+
+    async *setlist() {
+        let next = this.next;
+
+        while (next) {
+            yield next;
+            next = await this.flip(next);
+        }
+
+        return null;
+    }
+
+    private async flip(track: SessionTrack): Promise<SessionTrack | null> {
+        track.progress = track.duration;
+
+        await track.save();
+        await track.reload({ include: [SessionTrack] });
+
+        return track.next;
     }
 }

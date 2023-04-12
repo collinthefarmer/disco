@@ -1,31 +1,11 @@
-import {
-    Column,
-    HasOne,
-    HasMany,
-    Model,
-    Sequelize,
-    Table,
-    DataType,
-    PrimaryKey,
-    UpdatedAt,
-    CreatedAt,
-    AllowNull,
-    Default,
-    AutoIncrement,
-    ForeignKey,
-    BelongsTo,
-} from "sequelize-typescript";
+import { Sequelize } from "sequelize";
+import { Client as SpotifyClient } from "spotify.ts";
+import { Client as DiscordClient } from "discord.js";
 
-import {
-    PlaybackActionInterface,
-    PlaybackSourceInterface,
-    SessionInterface,
-    SessionCommand,
-    SessionManagerInterface,
-} from "./playback";
+import { BotCommand, BotCommandEnvironment, syncCommands } from "../bot";
+import { REST } from "discord.js";
 
 export const SESSION_IDLE_WAIT_MS = 1000 * 60 * 30; // 30 minutes
-
 export interface DiscoConfig {
     discordAppId: string;
     discordToken: string;
@@ -73,133 +53,39 @@ export function findConfig(
     };
 }
 
-// implementations
+type ConcreteBotCommandType = new (e: BotCommandEnvironment) => BotCommand;
 
-@Table
-export class PlaybackSource extends Model<PlaybackSourceInterface> {
-    @PrimaryKey
-    @Column
-    declare id: string;
+/**
+ * Start up the Discord Bot
+ *
+ * - set up the client needed for the discord rest api
+ * - sync bot commands registered in discord to bot commands in code
+ * - set up the spotify client
+ *      - needed for search autocomplete
+ * - start database client
+ * - start bot
+ *
+ * @param db: Sequelize
+ * @param cfg: BotConfig
+ * @param cmds: ConcreteBotCommandType[]
+ */
+export async function boogie(
+    db: Sequelize,
+    cfg: DiscoConfig,
+    cmds: ConcreteBotCommandType[]
+) {
+    const env: BotCommandEnvironment = {
+        discordRest: new REST({ version: "10" }).setToken(cfg.discordToken),
+        discord: new DiscordClient({ intents: [] /* todo: define these */ }),
+        spotify: new SpotifyClient({
+            clientId: cfg.spotifyAppId,
+            clientSecret: cfg.spotifyAppSc,
+        }),
+        db,
+        cfg,
+    };
+    const inst = cmds.map((c) => new c(env));
 
-    @Column
-    declare name: string;
-}
-
-@Table
-export class Session extends Model<
-    Omit<SessionInterface, "next" | "queue" | "history" | "revert">
-> {
-    // omit because those aren't actual columns but the builder thinks they are
-    @AllowNull
-    @AutoIncrement
-    @PrimaryKey
-    @Column
-    declare id: number;
-
-    @AllowNull
-    @Column({ type: DataType.STRING })
-    declare name: string | null;
-
-    @Column
-    declare channelId: string;
-
-    @Column
-    declare expiresAt: number;
-
-    @HasOne(() => PlaybackAction, "id")
-    declare current: PlaybackAction | null;
-
-    @HasOne(() => PlaybackAction, "id")
-    declare last: PlaybackAction | null;
-
-    declare history: SessionInterface[];
-
-    get next(): PlaybackAction | null {
-        if (!this.current) return null;
-        return this.current.next;
-    }
-
-    get queue(): PlaybackAction[] {
-        if (!this.current) return [];
-
-        const q = [this.current];
-        let next = this.current.next;
-        while (next) {
-            q.push(next);
-            next = next.next;
-        }
-
-        return q;
-    }
-
-    revert(to: SessionInterface) {
-        throw new Error();
-    }
-}
-
-@Table
-export class PlaybackAction extends Model<PlaybackActionInterface> {
-    @PrimaryKey
-    @AutoIncrement
-    @Column
-    declare id: number;
-
-    @BelongsTo(() => Session)
-    declare session: Session;
-
-    @HasOne(() => PlaybackAction)
-    declare next: PlaybackAction;
-
-    @HasOne(() => PlaybackSource)
-    declare src: PlaybackSource;
-
-    @Column
-    declare url: string;
-}
-
-export class DiscoSessionManager implements SessionManagerInterface {
-    public initialized: Promise<void>;
-    public session!: Session;
-
-    constructor(public sessionId: string, private dbConnection: Sequelize) {
-        this.initialized = this.initialize(this.dbConnection);
-    }
-
-    queueDrop(i: number): void {}
-
-    queueGoto(i: number): void {}
-
-    async queuePush(cmd: SessionCommand): Promise<void> {
-        const pushed = new PlaybackAction(cmd.asAction());
-
-        if (!this.session.current) {
-            this.session.current = pushed;
-            this.session.last = pushed;
-        } else if (!this.session.next) {
-            this.session.current.next = pushed;
-        } else if (this.session.last) {
-            this.session.last.next = pushed;
-            this.session.last = pushed;
-        }
-
-        await pushed.save();
-    }
-
-    queueSkip(): void {}
-
-    queueUndo(): void {}
-
-    queueFind(cmd: SessionCommand): number {
-        return 0;
-    }
-
-    private async initialize(sequelize: Sequelize) {
-        await sequelize.authenticate();
-        const session = await Session.findOne({
-            where: { id: this.sessionId },
-        });
-
-        if (!session) throw new Error();
-        this.session = session;
-    }
+    await syncCommands(inst, env);
+    await env.discord.login(cfg.discordToken);
 }

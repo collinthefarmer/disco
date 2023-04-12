@@ -4,7 +4,6 @@ import {
     BelongsTo,
     Column,
     Comment,
-    CreatedAt,
     DataType,
     ForeignKey,
     HasOne,
@@ -12,7 +11,6 @@ import {
     PrimaryKey,
     Scopes,
     Table,
-    UpdatedAt,
 } from "sequelize-typescript";
 
 import { Session } from "./Session";
@@ -24,8 +22,6 @@ interface TrackAttributes {
 
     duration: number;
     size: number;
-    created: number;
-    updated: number;
     started: number | null;
     progress: number | null;
 
@@ -110,14 +106,6 @@ export class SessionTrack<IsLast extends boolean = boolean> extends Model<
     @Comment("size in bytes")
     @Column
     declare size: number;
-
-    @CreatedAt
-    @Column
-    declare created: number;
-
-    @UpdatedAt
-    @Column
-    declare updated: number;
 
     @Comment("timestamp when playback was started")
     @AllowNull

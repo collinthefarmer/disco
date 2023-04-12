@@ -1,5 +1,4 @@
 import {
-    AutoIncrement,
     Column,
     Comment,
     HasMany,
@@ -25,6 +24,20 @@ export class SessionSource extends Model<
     SourceAttributes,
     SourceCreateAttributes
 > {
+    static async forUser(userId: string): Promise<SessionSource> {
+        const [src] = await SessionSource.findOrCreate({
+            where: {
+                id: userId,
+            },
+            defaults: {
+                id: userId,
+                name: "",
+            },
+        });
+
+        return src;
+    }
+
     @Comment("Should match to ID of linked Discord User.")
     @PrimaryKey
     @Column

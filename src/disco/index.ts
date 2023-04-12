@@ -1,7 +1,4 @@
 export * from "./disco";
-
-// added to queue
-// becomes or is added to session
-// session manager chooses targets
-// starts playback on target
-// session manager changes playback in accordance with queue when playback has finished
+export { Session } from "./models/Session";
+export { SessionTrack } from "./models/SessionTrack";
+export { SessionSource } from "./models/SessionSource";
