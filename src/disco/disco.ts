@@ -84,6 +84,9 @@ export async function boogie(
         db,
         cfg,
     };
+
+    await env.spotify.start();
+
     const inst = cmds.map((c) => new c(env));
 
     await syncCommands(inst, env);

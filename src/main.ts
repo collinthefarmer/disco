@@ -8,7 +8,7 @@ import {
     SessionSource,
 } from "./disco";
 
-import { Goto, Pause, Play, Skip, Status, Stop } from "./bot";
+import { Play } from "./bot";
 
 require("dotenv").config({ path: ".env" });
 
@@ -25,5 +25,5 @@ const db = new Sequelize({
 (async () => {
     await db.authenticate();
     await db.sync();
-    await boogie(db, cfg, [Goto, Pause, Play, Skip, Status, Stop]);
+    await boogie(db, cfg, [Play]);
 })();

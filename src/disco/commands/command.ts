@@ -48,19 +48,27 @@ export abstract class BotCommand implements BotCommandDefinition {
     }
 
     toData(this: BotCommandDefinition): ApplicationCommandData {
-        return Object.assign(
-            {
-                name: this.name,
-                description: this.description,
-                type: ApplicationCommandType.ChatInput,
-                defaultMemberPermissions: this.defaultMemberPermissions,
-                dmPermission: this.dmPermission,
-                nsfw: this.nsfw,
-                descriptionLocalizations: this.descriptionLocalizations,
-                nameLocalizations: this.nameLocalizations,
-            },
-            this.options ? { options: this.options } : {}
-        );
+        const data = {
+            name: this.name,
+            description: this.description,
+            type: ApplicationCommandType.ChatInput,
+        };
+
+        const optional = {
+            defaultMemberPermissions: this.defaultMemberPermissions,
+            dmPermission: this.dmPermission,
+            nsfw: this.nsfw,
+            options: this.options,
+            descriptionLocalizations: this.descriptionLocalizations,
+            nameLocalizations: this.nameLocalizations,
+        };
+
+        for (const [key, value] of Object.entries(optional)) {
+            if (value === undefined) continue;
+            (data as any)[key] = value;
+        }
+
+        return data;
     }
 
     constructor(protected env: BotCommandEnvironment) {}
@@ -72,7 +80,6 @@ export abstract class BotCommand implements BotCommandDefinition {
 
     onAutocomplete?(i: AutocompleteInteraction): Promise<void>;
 }
-
 
 async function installCommands(
     commands: BotCommand[],

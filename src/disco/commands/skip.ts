@@ -2,18 +2,15 @@ import { Goto } from "./goto";
 import {
     ApplicationCommandOptionData,
     ApplicationCommandOptionType,
-    AutocompleteInteraction,
     ChatInputCommandInteraction,
 } from "discord.js";
-import skipN = Strings.skipN;
-import skipNDescription = Strings.skipNDescription;
 
+// todo: move these to a better solution (strings file?)
 namespace Strings {
     export const skip = `skip`;
     export const skipDescription = `Skip this track, or the next N tracks.`;
 
     export const skipN = `skipN`;
-
     export const skipNDescription = `Number of tracks to skip (including this one).`;
 }
 
@@ -23,8 +20,8 @@ export class Skip extends Goto {
 
     options: ApplicationCommandOptionData[] = [
         {
-            name: skipN,
-            description: skipNDescription,
+            name: Strings.skipN,
+            description: Strings.skipNDescription,
             type: ApplicationCommandOptionType.Integer,
         },
     ];

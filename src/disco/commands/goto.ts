@@ -6,6 +6,7 @@ import {
     ChatInputCommandInteraction,
 } from "discord.js";
 
+// todo: move these to a better solution (strings file?)
 namespace Strings {
     export const goto = `goto`;
     export const gotoDescription = `Go to a point if the queue (if it exists).`;

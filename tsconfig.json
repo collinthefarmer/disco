@@ -23,6 +23,7 @@
     },
     "exclude": [
         "./_src",
+        "./src/bot",
         // local old implementation using for reference
         "test"
     ]
